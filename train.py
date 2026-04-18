@@ -23,7 +23,8 @@ def main(cfg: DictConfig):
         task=cfg.experiment.task,
         ood_task=cfg.experiment.ood_task,
         batch_size=cfg.experiment.batch_size,
-        max_length=cfg.experiment.max_length
+        max_length=cfg.experiment.max_length,
+        dataset_percentage=cfg.experiment.dataset_percentage
     )
 
     # 2. Setup Model with LoRA
