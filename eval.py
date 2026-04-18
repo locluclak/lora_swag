@@ -17,7 +17,11 @@ def main(cfg: DictConfig):
 
     # 1. Load Data (test sets)
     _, _, test_id_loader, test_ood_loader, tokenizer = get_dataloaders(
-        cfg.model.model_name, cfg.experiment.batch_size, cfg.experiment.max_length
+        model_name=cfg.model.model_name,
+        task=cfg.experiment.task,
+        ood_task=cfg.experiment.ood_task,
+        batch_size=cfg.experiment.batch_size,
+        max_length=cfg.experiment.max_length
     )
 
     # 2. Setup Base Model + Load LoRA Adapter

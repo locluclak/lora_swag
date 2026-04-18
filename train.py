@@ -19,7 +19,11 @@ def main(cfg: DictConfig):
 
     # 1. Load Data (only train and val needed)
     train_loader, val_loader, _, _, tokenizer = get_dataloaders(
-        cfg.model.model_name, cfg.experiment.batch_size, cfg.experiment.max_length
+        model_name=cfg.model.model_name,
+        task=cfg.experiment.task,
+        ood_task=cfg.experiment.ood_task,
+        batch_size=cfg.experiment.batch_size,
+        max_length=cfg.experiment.max_length
     )
 
     # 2. Setup Model with LoRA
