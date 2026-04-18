@@ -30,12 +30,14 @@ def evaluate(model, dataloader, device, num_samples=1, scale=1.0, use_cov=True):
             all_probs.append(torch.cat(sample_probs, dim=0))
     
     avg_probs = torch.stack(all_probs).mean(dim=0)
-    preds = avg_probs.argmax(dim=-1).numpy()
+    # Ensure float32 for numpy compatibility (P100 doesn't support bfloat16 numpy well)
+    avg_probs_f32 = avg_probs.float()
+    preds = avg_probs_f32.argmax(dim=-1).numpy()
     
     acc = accuracy_score(all_labels, preds)
-    entropies = -(avg_probs * torch.log(avg_probs + 1e-10)).sum(dim=-1).numpy()
+    entropies = -(avg_probs_f32 * torch.log(avg_probs_f32 + 1e-10)).sum(dim=-1).numpy()
     
-    return acc, avg_probs.numpy(), all_labels, entropies
+    return acc, avg_probs_f32.numpy(), all_labels, entropies
 
 def compute_ood_metrics(id_entropies, ood_entropies):
     labels = np.zeros(len(id_entropies) + len(ood_entropies))

@@ -15,4 +15,4 @@ experiment:
   seed: 42
   save_path: "./outputs"
   max_length: 128
-  dataset_percentage: 0.5
+  dataset_percentage: 0.2
