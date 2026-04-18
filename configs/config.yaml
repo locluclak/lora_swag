@@ -7,7 +7,7 @@ experiment:
   ood_task: "rte"
   batch_size: 16
   learning_rate: 2e-4
-  num_epochs: 3
+  num_epochs: 2
   swag_start_epoch: 1
   swag_collect_freq: 1
   swag_scale: 1.0

@@ -39,7 +39,7 @@ def main(cfg: DictConfig):
         r=cfg.model.lora_r,
         lora_alpha=cfg.model.lora_alpha,
         lora_dropout=cfg.model.lora_dropout,
-        target_modules=cfg.model.target_modules,
+        target_modules=list(cfg.model.target_modules),
     )
     model = get_peft_model(base_model, peft_config)
     model.to(device)
