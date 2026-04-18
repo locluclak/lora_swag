@@ -1,0 +1,9 @@
+torch
+transformers
+peft
+datasets
+hydra-core
+tqdm
+scipy
+scikit-learn
+accelerate
