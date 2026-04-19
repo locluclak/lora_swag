@@ -10,7 +10,6 @@ from transformers import AutoModelForSequenceClassification, set_seed
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
 from src.eval_utils import evaluate
-from hydra.core.hydra_config import HydraConfig
 
 @hydra.main(config_path="configs", config_name="config", version_base="1.1")
 def main(cfg: DictConfig):
@@ -18,14 +17,12 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Determine save path (respect Hydra's output dir if not absolute)
+    # Use a clean, predictable save path from config
     save_path = cfg.experiment.save_path
-    if not os.path.isabs(save_path):
-        save_path = os.path.join(HydraConfig.get().runtime.output_dir, save_path)
-    print(f"Saving results to: {save_path}")
+    os.makedirs(save_path, exist_ok=True)
+    print(f"Saving results to: {os.path.abspath(save_path)}")
 
     # 1. Load Data
-
     train_loader, val_loader, _, _, tokenizer = get_dataloaders(
         model_name=cfg.model.model_name,
         task=cfg.experiment.task,
@@ -34,7 +31,6 @@ def main(cfg: DictConfig):
         max_length=cfg.experiment.max_length,
         dataset_percentage=cfg.experiment.dataset_percentage
     )
-
 
     # 2. Setup Model with LoRA
     base_model = AutoModelForSequenceClassification.from_pretrained(
@@ -79,23 +75,17 @@ def main(cfg: DictConfig):
         
         print(f"Epoch {epoch} Avg Train Loss: {total_loss / len(train_loader):.4f}")
 
-        # SWAG Collection
         if epoch >= cfg.experiment.swag_start_epoch:
             if (epoch - cfg.experiment.swag_start_epoch) % cfg.experiment.swag_collect_freq == 0:
                 print(f"Collecting model for SWAG at epoch {epoch}")
                 swag_model.collect_model()
 
-        # Simple Validation during training
         val_acc, _, _, _ = evaluate(model, val_loader, device)
         print(f"Validation Accuracy: {val_acc:.4f}")
 
-    # 6. Save Outputs
-    os.makedirs(save_path, exist_ok=True)
-    # Save the LoRA adapter (used to load the model architecture later)
+    # 6. Save Outputs to the simple path
     model.save_pretrained(os.path.join(save_path, "lora_adapter"))
-    # Save the SWAG stats
     torch.save(swag_model.state_dict(), os.path.join(save_path, "swag_model.pt"))
-    
     print(f"Training finished. Model saved to {save_path}")
 
 if __name__ == "__main__":

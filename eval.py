@@ -8,7 +8,6 @@ from transformers import AutoModelForSequenceClassification, set_seed
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
 from src.eval_utils import evaluate, compute_ood_metrics
-from hydra.core.hydra_config import HydraConfig
 
 @hydra.main(config_path="configs", config_name="config", version_base="1.1")
 def main(cfg: DictConfig):
@@ -16,13 +15,11 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    # Determine save path (consistent with train.py)
+    # Use the clean save path from config
     save_path = cfg.experiment.save_path
-    if not os.path.isabs(save_path):
-        save_path = os.path.join(HydraConfig.get().runtime.output_dir, save_path)
-    print(f"Loading models from: {save_path}")
+    print(f"Loading models from: {os.path.abspath(save_path)}")
 
-    # 1. Load Data (test sets)
+    # 1. Load Data
     _, _, test_id_loader, test_ood_loader, tokenizer = get_dataloaders(
         model_name=cfg.model.model_name,
         task=cfg.experiment.task,
@@ -58,7 +55,7 @@ def main(cfg: DictConfig):
 
     print("\n--- Evaluation Results ---")
     
-    # 4. Evaluate Base LoRA Model (No SWAG sampling)
+    # 4. Evaluate Base LoRA Model
     print("Evaluating Base LoRA Model...")
     base_id_acc, _, _, id_entropies_base = evaluate(model, test_id_loader, device)
     _, _, _, ood_entropies_base = evaluate(model, test_ood_loader, device)
@@ -66,7 +63,7 @@ def main(cfg: DictConfig):
     print(f"Base ID Acc: {base_id_acc:.4f}")
     print(f"Base OOD AUROC: {base_auroc:.4f}")
 
-    # 5. Evaluate SWAG Model (10 samples)
+    # 5. Evaluate SWAG Model
     if swag_model.n_models.item() > 0:
         print("\nEvaluating SWAG LoRA Model (10 Samples)...")
         swag_id_acc, _, _, id_entropies_swag = evaluate(
@@ -78,8 +75,6 @@ def main(cfg: DictConfig):
         swag_auroc = compute_ood_metrics(id_entropies_swag, ood_entropies_swag)
         print(f"SWAG ID Acc: {swag_id_acc:.4f}")
         print(f"SWAG OOD AUROC: {swag_auroc:.4f}")
-    else:
-        print("\nSkipping SWAG evaluation as no models were collected.")
 
 if __name__ == "__main__":
     main()

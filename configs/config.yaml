@@ -2,6 +2,11 @@ defaults:
   - model: qwen
   - _self_
 
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
 experiment:
   task: "mnli"
   ood_task: "rte"
@@ -13,6 +18,7 @@ experiment:
   swag_scale: 1.0
   max_num_models: 20
   seed: 42
-  save_path: "./outputs"
+  save_path: "outputs"
   max_length: 128
-  dataset_percentage: 0.2
+  dataset_percentage: 0.1
+
