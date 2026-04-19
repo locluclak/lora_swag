@@ -8,12 +8,19 @@ from transformers import AutoModelForSequenceClassification, set_seed
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
 from src.eval_utils import evaluate, compute_ood_metrics
+from hydra.core.hydra_config import HydraConfig
 
 @hydra.main(config_path="configs", config_name="config", version_base="1.1")
 def main(cfg: DictConfig):
     set_seed(cfg.experiment.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+
+    # Determine save path (consistent with train.py)
+    save_path = cfg.experiment.save_path
+    if not os.path.isabs(save_path):
+        save_path = os.path.join(HydraConfig.get().runtime.output_dir, save_path)
+    print(f"Loading models from: {save_path}")
 
     # 1. Load Data (test sets)
     _, _, test_id_loader, test_ood_loader, tokenizer = get_dataloaders(
@@ -32,7 +39,7 @@ def main(cfg: DictConfig):
     if tokenizer.pad_token_id is not None:
         base_model.config.pad_token_id = tokenizer.pad_token_id
 
-    adapter_path = os.path.join(cfg.experiment.save_path, "lora_adapter")
+    adapter_path = os.path.join(save_path, "lora_adapter")
     if not os.path.exists(adapter_path):
         raise FileNotFoundError(f"LoRA adapter not found at {adapter_path}. Run train.py first.")
     
@@ -41,7 +48,7 @@ def main(cfg: DictConfig):
 
     # 3. Setup SWAG wrapper + Load SWAG stats
     swag_model = LoRASWAG(model, max_num_models=cfg.experiment.max_num_models)
-    swag_path = os.path.join(cfg.experiment.save_path, "swag_model.pt")
+    swag_path = os.path.join(save_path, "swag_model.pt")
     if os.path.exists(swag_path):
         swag_model.load_state_dict(torch.load(swag_path, map_location=device))
         swag_model.to(device)
