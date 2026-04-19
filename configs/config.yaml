@@ -12,7 +12,7 @@ experiment:
   ood_task: "rte"
   batch_size: 16
   learning_rate: 2e-4
-  num_epochs: 2
+  num_epochs: 3
   swag_start_epoch: 1
   swag_collect_freq: 1
   swag_scale: 1.0
@@ -20,5 +20,5 @@ experiment:
   seed: 42
   save_path: "outputs"
   max_length: 128
-  dataset_percentage: 0.1
+  dataset_percentage: 0.5
 
