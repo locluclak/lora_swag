@@ -5,7 +5,7 @@ from tqdm import tqdm
 import hydra
 from omegaconf import DictConfig
 from peft import get_peft_model, LoraConfig, TaskType
-from transformers import AutoModelForSequenceClassification, set_seed
+from transformers import AutoModelForSequenceClassification, set_seed, get_linear_schedule_with_warmup
 
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
@@ -51,12 +51,30 @@ def main(cfg: DictConfig):
     model.print_trainable_parameters()
 
     # 3. Setup SWAG wrapper
-    swag_model = LoRASWAG(model, max_num_models=cfg.experiment.max_num_models)
+    swag_model = LoRASWAG(model, max_num_models=max(cfg.experiment.max_num_models, cfg.experiment.swag_total_samples))
     swag_model.to(device)
 
-    # 4. Optimizer
+    # 4. Optimizer and Scheduler
     optimizer = AdamW(model.parameters(), lr=cfg.experiment.learning_rate)
+    
+    total_steps = len(train_loader) * cfg.experiment.num_epochs
+    swag_start_step = int(total_steps * cfg.experiment.swag_start_ratio)
+    swag_steps_remaining = total_steps - swag_start_step
+    # Calculate interval to collect exactly cfg.experiment.swag_total_samples
+    swag_collect_interval = max(1, swag_steps_remaining // cfg.experiment.swag_total_samples)
+    
+    # Standard scheduler for the first 75%
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, 
+        num_warmup_steps=int(total_steps * 0.05), 
+        num_training_steps=total_steps
+    )
 
+    print(f"Total steps: {total_steps} | SWAG starts at step: {swag_start_step} | Collection interval: {swag_collect_interval}")
+
+    global_step = 0
+    swag_collected_count = 0
+    
     # 5. Training Loop
     for epoch in range(cfg.experiment.num_epochs):
         model.train()
@@ -70,23 +88,38 @@ def main(cfg: DictConfig):
             loss.backward()
             optimizer.step()
             
+            # Step scheduler only BEFORE swag_start_step
+            if global_step < swag_start_step:
+                scheduler.step()
+            # After swag_start_step, we do NOT call scheduler.step() 
+            # This makes the learning rate constant at the value it reached at 75% training
+            
             total_loss += loss.item()
-            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
+            global_step += 1
+            
+            current_lr = optimizer.param_groups[0]['lr']
+            pbar.set_postfix({"loss": f"{loss.item():.4f}", "lr": f"{current_lr:.2e}", "step": global_step})
+
+            # SWAG Collection logic
+            if global_step >= swag_start_step:
+                # Collect every N steps to reach the target sample count
+                if (global_step - swag_start_step) % swag_collect_interval == 0 and swag_collected_count < cfg.experiment.swag_total_samples:
+                    print(f"\n[Step {global_step}] Collecting SWAG sample {swag_collected_count+1}/{cfg.experiment.swag_total_samples} (LR: {current_lr:.2e})")
+                    swag_model.collect_model()
+                    swag_collected_count += 1
         
         print(f"Epoch {epoch} Avg Train Loss: {total_loss / len(train_loader):.4f}")
-
-        if epoch >= cfg.experiment.swag_start_epoch:
-            if (epoch - cfg.experiment.swag_start_epoch) % cfg.experiment.swag_collect_freq == 0:
-                print(f"Collecting model for SWAG at epoch {epoch}")
-                swag_model.collect_model()
-
+        
+        # Periodic validation
         val_acc, _, _, _ = evaluate(model, val_loader, device)
         print(f"Validation Accuracy: {val_acc:.4f}")
 
-    # 6. Save Outputs to the simple path
+    # 6. Save Outputs
     model.save_pretrained(os.path.join(save_path, "lora_adapter"))
-    torch.save(swag_model.state_dict(), os.path.join(save_path, "swag_model.pt"))
-    print(f"Training finished. Model saved to {save_path}")
+    # Save only the SWAG statistics (much smaller)
+    swag_stats = swag_model.get_swag_stats()
+    torch.save(swag_stats, os.path.join(save_path, "swag_stats.pt"))
+    print(f"Training finished. {swag_collected_count} SWAG samples collected. Model saved to {save_path}")
 
 if __name__ == "__main__":
     main()

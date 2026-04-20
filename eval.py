@@ -44,10 +44,11 @@ def main(cfg: DictConfig):
     model.to(device)
 
     # 3. Setup SWAG wrapper + Load SWAG stats
-    swag_model = LoRASWAG(model, max_num_models=cfg.experiment.max_num_models)
-    swag_path = os.path.join(save_path, "swag_model.pt")
+    swag_model = LoRASWAG(model, max_num_models=max(cfg.experiment.max_num_models, cfg.experiment.swag_total_samples))
+    swag_path = os.path.join(save_path, "swag_stats.pt")
     if os.path.exists(swag_path):
-        swag_model.load_state_dict(torch.load(swag_path, map_location=device))
+        swag_stats = torch.load(swag_path, map_location=device)
+        swag_model.load_swag_stats(swag_stats)
         swag_model.to(device)
         print("Loaded SWAG stats.")
     else:

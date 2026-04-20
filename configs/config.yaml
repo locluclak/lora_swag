@@ -13,8 +13,8 @@ experiment:
   batch_size: 16
   learning_rate: 2e-4
   num_epochs: 3
-  swag_start_epoch: 1
-  swag_collect_freq: 1
+  swag_start_ratio: 0.75
+  swag_total_samples: 30
   swag_scale: 1.0
   max_num_models: 20
   seed: 42
