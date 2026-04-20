@@ -7,7 +7,11 @@ from transformers import AutoModelForSequenceClassification, set_seed
 
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
-from src.eval_utils import evaluate, compute_ood_metrics
+from src.eval_utils import evaluate, compute_ood_metrics, compute_prr
+
+def get_binary_acc(probs, labels):
+    preds = probs.argmax(axis=-1)
+    return (preds == labels).astype(int)
 
 @hydra.main(config_path="configs", config_name="config", version_base="1.1")
 def main(cfg: DictConfig):
@@ -58,24 +62,29 @@ def main(cfg: DictConfig):
     
     # 4. Evaluate Base LoRA Model
     print("Evaluating Base LoRA Model...")
-    base_id_acc, _, _, id_entropies_base = evaluate(model, test_id_loader, device)
+    base_id_acc, base_id_probs, base_id_labels, id_entropies_base = evaluate(model, test_id_loader, device)
     _, _, _, ood_entropies_base = evaluate(model, test_ood_loader, device)
     base_auroc = compute_ood_metrics(id_entropies_base, ood_entropies_base)
+    base_prr = compute_prr(get_binary_acc(base_id_probs, base_id_labels), id_entropies_base)
     print(f"Base ID Acc: {base_id_acc:.4f}")
+    print(f"Base ID PRR: {base_prr:.4f}")
     print(f"Base OOD AUROC: {base_auroc:.4f}")
 
     # 5. Evaluate SWAG Model
     if swag_model.n_models.item() > 0:
-        print("\nEvaluating SWAG LoRA Model (10 Samples)...")
-        swag_id_acc, _, _, id_entropies_swag = evaluate(
-            swag_model, test_id_loader, device, num_samples=5, scale=cfg.experiment.swag_scale
+        print(f"\nEvaluating SWAG LoRA Model ({cfg.experiment.swag_eval_samples} Samples)...")
+        swag_id_acc, swag_id_probs, swag_id_labels, id_entropies_swag = evaluate(
+            swag_model, test_id_loader, device, num_samples=cfg.experiment.swag_eval_samples, scale=cfg.experiment.swag_scale
         )
         _, _, _, ood_entropies_swag = evaluate(
-            swag_model, test_ood_loader, device, num_samples=5, scale=cfg.experiment.swag_scale
+            swag_model, test_ood_loader, device, num_samples=cfg.experiment.swag_eval_samples, scale=cfg.experiment.swag_scale
         )
         swag_auroc = compute_ood_metrics(id_entropies_swag, ood_entropies_swag)
+        swag_prr = compute_prr(get_binary_acc(swag_id_probs, swag_id_labels), id_entropies_swag)
         print(f"SWAG ID Acc: {swag_id_acc:.4f}")
+        print(f"SWAG ID PRR: {swag_prr:.4f}")
         print(f"SWAG OOD AUROC: {swag_auroc:.4f}")
+
 
 if __name__ == "__main__":
     main()

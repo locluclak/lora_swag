@@ -18,7 +18,12 @@ A modernized, simplified, and high-performance implementation of **Stochastic We
 ### In-Distribution (ID): MNLI
 - **Dataset**: `GLUE / MNLI` (Multi-Genre Natural Language Inference).
 - **Task**: 3-class classification (Entailment, Neutral, Contradiction).
-- **Metric**: **Accuracy**. measures how many labels the model predicts correctly on the `validation_matched` split.
+- **Metrics**: 
+    - **Accuracy**: Measure of overall correctness.
+    - **PRR (Prediction-Rejection Ratio)**: Measures how effectively the uncertainty scores can filter out incorrect predictions. 
+        - **1.0**: Perfect filtering (rejects all errors before any correct samples).
+        - **0.0**: No better than random rejection.
+        - **Negative**: Misleading uncertainty (rejects correct samples while keeping errors).
 
 ### Out-of-Distribution (OOD): RTE
 - **Dataset**: `GLUE / RTE` (Recognizing Textual Entailment).
@@ -63,6 +68,7 @@ Managed in `configs/config.yaml`.
 | `dataset_percentage` | Subsample ID training data (e.g., 0.5 = 50%) | `0.5` |
 | `swag_start_ratio` | Progress ratio to start collection (Bayesian phase) | `0.75` |
 | `swag_total_samples` | Exact number of samples to collect for the posterior | `30` |
+| `swag_eval_samples` | Number of samples to draw during evaluation | `10` |
 | `swag_scale` | Scaling factor for the sampled weight noise | `1.0` |
 
 ---

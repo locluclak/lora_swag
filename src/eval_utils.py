@@ -45,3 +45,45 @@ def compute_ood_metrics(id_entropies, ood_entropies):
     scores = np.concatenate([id_entropies, ood_entropies])
     auroc = roc_auc_score(labels, scores)
     return auroc
+
+def compute_prr(accuracies, uq_scores):
+    """
+    Compute the Prediction-Rejection Ratio (PRR).
+    accuracies: list of 1s (correct) and 0s (wrong)
+    uq_scores: uncertainty scores (higher = more uncertain)
+    """
+    n = len(accuracies)
+    if n == 0: return 0.0
+    
+    accuracies = np.array(accuracies)
+    uq_scores = np.array(uq_scores)
+    
+    # Initial accuracy (A_Random baseline is constant accuracy)
+    initial_acc = np.mean(accuracies)
+    
+    def get_auc(sorted_accs):
+        # Calculate accuracy at each rejection step
+        # Step k means we have rejected k samples and have n-k left
+        res = []
+        for k in range(n):
+            remaining_acc = np.mean(sorted_accs[k:])
+            res.append(remaining_acc)
+        return np.mean(res)
+
+    # 1. A_UQ: Sort by UQ scores Descending (reject most uncertain first)
+    uq_indices = np.argsort(-uq_scores)
+    a_uq = get_auc(accuracies[uq_indices])
+    
+    # 2. A_Random: Constant area
+    a_random = initial_acc
+    
+    # 3. A_Oracle: Sort by accuracies Ascending (reject all 0s first)
+    oracle_indices = np.argsort(accuracies)
+    a_oracle = get_auc(accuracies[oracle_indices])
+    
+    # PRR Formula
+    if a_oracle == a_random:
+        return 0.0
+    
+    prr = (a_uq - a_random) / (a_oracle - a_random)
+    return prr

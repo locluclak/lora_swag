@@ -15,6 +15,7 @@ experiment:
   num_epochs: 2
   swag_start_ratio: 0.75
   swag_total_samples: 30
+  swag_eval_samples: 5
   swag_scale: 1.0
   max_num_models: 20
   seed: 42
