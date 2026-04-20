@@ -68,10 +68,10 @@ def main(cfg: DictConfig):
     if swag_model.n_models.item() > 0:
         print("\nEvaluating SWAG LoRA Model (10 Samples)...")
         swag_id_acc, _, _, id_entropies_swag = evaluate(
-            swag_model, test_id_loader, device, num_samples=10, scale=cfg.experiment.swag_scale
+            swag_model, test_id_loader, device, num_samples=5, scale=cfg.experiment.swag_scale
         )
         _, _, _, ood_entropies_swag = evaluate(
-            swag_model, test_ood_loader, device, num_samples=10, scale=cfg.experiment.swag_scale
+            swag_model, test_ood_loader, device, num_samples=5, scale=cfg.experiment.swag_scale
         )
         swag_auroc = compute_ood_metrics(id_entropies_swag, ood_entropies_swag)
         print(f"SWAG ID Acc: {swag_id_acc:.4f}")

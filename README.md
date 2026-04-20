@@ -11,68 +11,59 @@ A modernized, simplified, and high-performance implementation of **Stochastic We
     - Starts SWAG collection automatically at **75%** of training.
     - Transitions to a **constant learning rate** during the sampling phase.
     - Collects a determined number of samples (default: **30**) across the final 25% of steps.
-- **Robust OOD Detection**: Built-in evaluation for In-Distribution (**MNLI**) and Out-of-Distribution (**RTE**) tasks.
-- **VM-Friendly**: Simplified Hydra configuration without complex timestamped subdirectories, perfect for Kaggle/Colab/AutoDL automation.
+- **VM-Friendly**: Simplified Hydra configuration without complex timestamped subdirectories.
 
-## 🛠️ Installation
+## 📊 Datasets & Metrics
+
+### In-Distribution (ID): MNLI
+- **Dataset**: `GLUE / MNLI` (Multi-Genre Natural Language Inference).
+- **Task**: 3-class classification (Entailment, Neutral, Contradiction).
+- **Metric**: **Accuracy**. measures how many labels the model predicts correctly on the `validation_matched` split.
+
+### Out-of-Distribution (OOD): RTE
+- **Dataset**: `GLUE / RTE` (Recognizing Textual Entailment).
+- **Purpose**: Evaluates how the model behaves on "unknown" distributions. Even though it's NLI, RTE's distribution and binary labels differ from MNLI, providing a standard benchmark for distribution shift.
+- **Metric**: **AUROC (Area Under ROC Curve)**.
+    - We calculate the **Predictive Entropy** $H(y|x) = -\sum p(y|x) \log p(y|x)$ for every sample in both MNLI and RTE.
+    - A well-calibrated Bayesian model should have **higher entropy** (more uncertainty) on the OOD data (RTE).
+    - **AUROC** measures the model's ability to distinguish ID from OOD samples based solely on this entropy score. An AUROC of 1.0 means perfect separation.
+
+## 📈 Bayesian Methodology
+
+### The SWAG Algorithm
+SWAG approximates the posterior distribution of the LoRA weights as a Gaussian $\mathcal{N}(\theta_{SWA}, \Sigma_{SWAG})$.
+1. **Mean ($\theta_{SWA}$)**: The running average of weights collected during the final 25% of training.
+2. **Variance ($\Sigma_{SWAG}$)**: A combination of a diagonal variance (from second moments) and a low-rank covariance matrix (storing the last $K$ weight deviations).
+
+### Ensemble Inference
+During `eval.py`, we perform **Bayesian Model Averaging**:
+- We sample $T=10$ different weight sets from the Gaussian posterior.
+- We run the input $x$ through each sampled model to get probabilities $p(y|x, \theta_t)$.
+- We compute the **Ensemble Probability**: $\bar{p} = \frac{1}{T} \sum_{t=1}^T p(y|x, \theta_t)$.
+- **Accuracy** and **Entropy** are calculated using this averaged probability $\bar{p}$, which is typically more robust and better calibrated than a single point-estimate model.
+
+## 🛠️ Installation & Usage
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-```
 
-**Requirements:** `torch`, `transformers`, `peft`, `datasets`, `hydra-core`, `tqdm`, `scikit-learn`, `accelerate`.
-
-## 📈 Methodology
-
-This implementation follows a rigorous Bayesian training schedule:
-1. **Pre-training (0% - 75%)**: Standard LoRA fine-tuning with a linear learning rate schedule and warmup.
-2. **Bayesian Phase (75% - 100%)**: 
-    - The learning rate is frozen at its 75% value (Constant LR).
-    - The model explores the local minima.
-    - 30 weight samples are collected at regular step intervals to build the SWAG Gaussian posterior.
-
-## 📖 Usage
-
-### 1. Training & Collection
-Train the LoRA adapter and build the SWAG posterior stats:
-```bash
+# 1. Train on MNLI (Starts SWAG at 75% progress)
 python train.py
-```
-*Outputs are saved to `./outputs/`:*
-- `lora_adapter/`: The fine-tuned LoRA weights.
-- `swag_stats.pt`: The compact SWAG statistics (Mean, SqMean, Cov).
 
-### 2. Evaluation
-Evaluate the deterministic LoRA base model vs. the SWAG Ensemble:
-```bash
+# 2. Evaluate on MNLI (ID) and RTE (OOD)
 python eval.py
 ```
-*Metrics reported:*
-- **ID Accuracy**: Performance on the MNLI matched validation set.
-- **OOD AUROC**: Ability to detect distribution shift using RTE via predictive entropy.
 
 ## ⚙️ Configuration
 
-All settings are managed in `configs/config.yaml`. 
+Managed in `configs/config.yaml`. 
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `dataset_percentage` | Use a subset of data for faster training | `0.5` (50%) |
-| `swag_start_ratio` | When to start Bayesian collection | `0.75` |
-| `swag_total_samples` | Number of samples to collect | `30` |
-| `num_epochs` | Total training epochs | `3` |
-| `learning_rate` | Peak learning rate | `2e-4` |
-
-To override settings via CLI:
-```bash
-python train.py experiment.dataset_percentage=0.1 experiment.num_epochs=1
-```
-
-## 🛡️ Compatibility Notes
-
-- **Hardware**: Fully compatible with **NVIDIA P100** (Kaggle) and newer. Includes automatic `float32` casting for `BFloat16` tensors to prevent NumPy/Type errors on older GPUs.
-- **Storage**: The `swag_stats.pt` is decoupled from the base model, making it easy to share and deploy.
+| `dataset_percentage` | Subsample ID training data (e.g., 0.5 = 50%) | `0.5` |
+| `swag_start_ratio` | Progress ratio to start collection (Bayesian phase) | `0.75` |
+| `swag_total_samples` | Exact number of samples to collect for the posterior | `30` |
+| `swag_scale` | Scaling factor for the sampled weight noise | `1.0` |
 
 ---
-*Based on the original SWAG-LoRA research, modernized for 2026 LLM standards.*
+*Developed for efficient, reproducible research on virtual machines and Kaggle/AutoDL environments.*
