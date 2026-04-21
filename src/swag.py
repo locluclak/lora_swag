@@ -15,13 +15,25 @@ class LoRASWAG(nn.Module):
         
         self.register_buffer("n_models", torch.zeros([1], dtype=torch.long))
         
-        # Identify LoRA parameters
+        # Identify LoRA parameters correctly
+        # In PEFT, lora_A/B are submodules, and the parameter is named 'weight'
         self.params: List[Tuple[nn.Module, str, str]] = []
-        for name, module in self.model.named_modules():
-            for param_name, param in module.named_parameters(recurse=False):
-                if 'lora_A' in param_name or 'lora_B' in param_name:
-                    # Store module, param_name, and the full prefix for saving/loading
-                    self.params.append((module, param_name, name))
+        
+        for name, param in self.model.named_parameters():
+            if 'lora_A' in name or 'lora_B' in name:
+                # Split name into module path and parameter name
+                # e.g., "base_model.model.layers.0.self_attn.q_proj.lora_A.default.weight"
+                parts = name.split('.')
+                module_path = '.'.join(parts[:-1])
+                param_name = parts[-1]
+                
+                module = self.model.get_submodule(module_path)
+                self.params.append((module, param_name, module_path))
+        
+        if len(self.params) == 0:
+            print("WARNING: No LoRA parameters found! SWAG statistics will be empty.")
+        else:
+            print(f"LoRASWAG: Found {len(self.params)} LoRA parameters to track.")
         
         self._init_swag_buffers()
 
@@ -40,6 +52,8 @@ class LoRASWAG(nn.Module):
             mean = getattr(module, f"{param_name}_mean")
             sq_mean = getattr(module, f"{param_name}_sq_mean")
             
+            # Use float64 for intermediate calculation if precision is an issue, 
+            # but usually float32 is fine for SWA
             new_mean = (mean * n + param) / (n + 1)
             new_sq_mean = (sq_mean * n + param**2) / (n + 1)
             
@@ -64,9 +78,11 @@ class LoRASWAG(nn.Module):
             mean = getattr(module, f"{param_name}_mean")
             sq_mean = getattr(module, f"{param_name}_sq_mean")
             
+            # Diagonal variance
             var = torch.clamp(sq_mean - mean**2, self.var_clamp)
             sample = mean + torch.randn_like(mean) * torch.sqrt(var) * scale
             
+            # Low-rank covariance
             if use_cov:
                 cov_mat_sqrt = getattr(module, f"{param_name}_cov_mat_sqrt")
                 if cov_mat_sqrt.size(0) > 0:
@@ -79,18 +95,18 @@ class LoRASWAG(nn.Module):
     def get_swag_stats(self) -> Dict[str, torch.Tensor]:
         """Extract only the SWAG buffers for efficient saving."""
         stats = {"n_models": self.n_models}
-        for module, param_name, full_name in self.params:
+        for module, param_name, full_module_path in self.params:
             for suffix in ["_mean", "_sq_mean", "_cov_mat_sqrt"]:
-                key = f"{full_name}.{param_name}{suffix}"
+                key = f"{full_module_path}.{param_name}{suffix}"
                 stats[key] = getattr(module, f"{param_name}{suffix}")
         return stats
 
     def load_swag_stats(self, stats: Dict[str, torch.Tensor]):
         """Load SWAG buffers from a filtered dictionary."""
         self.n_models.copy_(stats["n_models"])
-        for module, param_name, full_name in self.params:
+        for module, param_name, full_module_path in self.params:
             for suffix in ["_mean", "_sq_mean", "_cov_mat_sqrt"]:
-                key = f"{full_name}.{param_name}{suffix}"
+                key = f"{full_module_path}.{param_name}{suffix}"
                 if key in stats:
                     # Resize the cov_mat_sqrt buffer if necessary to match loaded rank
                     if suffix == "_cov_mat_sqrt":
