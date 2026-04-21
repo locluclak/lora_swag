@@ -4,6 +4,7 @@ from tqdm import tqdm
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score
 from typing import Tuple, List
+import torch.nn.functional as F
 
 def evaluate(model, dataloader, device, num_samples=1, scale=1.0, use_cov=True):
     model.eval()
@@ -37,7 +38,11 @@ def evaluate(model, dataloader, device, num_samples=1, scale=1.0, use_cov=True):
     acc = accuracy_score(all_labels, preds)
     entropies = -(avg_probs_f32 * torch.log(avg_probs_f32 + 1e-10)).sum(dim=-1).numpy()
     
-    return acc, avg_probs_f32.numpy(), all_labels, entropies
+    # NLL Calculation
+    labels_tensor = torch.tensor(all_labels)
+    nll_loss = F.nll_loss(torch.log(avg_probs_f32 + 1e-10), labels_tensor)
+    nll_value = nll_loss.item()
+    return acc, avg_probs_f32.numpy(), all_labels, entropies, nll_value
 
 def compute_ood_metrics(id_entropies, ood_entropies):
     labels = np.zeros(len(id_entropies) + len(ood_entropies))
