@@ -129,10 +129,10 @@ def plot_entropy_dist(id_entropies, ood_entropies, title="Entropy Distribution",
     plt.figure(figsize=(10, 6))
     
     # Vẽ phân phối cho ID
-    sns.kdeplot(id_entropies, shade=True, label='In-Distribution (ID)', color='blue', bw_adjust=0.5)
+    sns.kdeplot(id_entropies, fill=True, label='In-Distribution (ID)', color='blue', bw_adjust=0.5)
     
     # Vẽ phân phối cho OOD
-    sns.kdeplot(ood_entropies, shade=True, label='Out-of-Distribution (OOD)', color='red', bw_adjust=0.5)
+    sns.kdeplot(ood_entropies, fill=True, label='Out-of-Distribution (OOD)', color='red', bw_adjust=0.5)
     
     plt.xlabel('Entropy')
     plt.ylabel('Density')
