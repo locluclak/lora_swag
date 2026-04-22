@@ -111,7 +111,7 @@ def main(cfg: DictConfig):
         print(f"Epoch {epoch} Avg Train Loss: {total_loss / len(train_loader):.4f}")
         
         # Periodic validation
-        val_acc, _, _, _ = evaluate(model, val_loader, device)
+        val_acc, _, _, _, _ = evaluate(model, val_loader, device)
         print(f"Validation Accuracy: {val_acc:.4f}")
 
     # 6. Save Outputs
