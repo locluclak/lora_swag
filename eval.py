@@ -69,7 +69,7 @@ def main(cfg: DictConfig):
     base_prr = compute_prr(get_binary_acc(base_id_probs, base_id_labels), id_entropies_base)
     base_prr_ood = compute_prr(get_binary_acc(base_ood_probs, base_ood_labels), ood_entropies_base)
     base_ece_id = calculate_ece(base_id_probs, base_id_labels)
-    base_ece_ood = calculate_ece(ood_entropies_base, base_ood_labels)
+    base_ece_ood = calculate_ece(base_ood_probs, base_ood_labels)
     
     print(f"Base ID Acc: {base_id_acc:.4f}")
     print(f"Base OOD Acc: {base_ood_acc:.4f}")
@@ -107,7 +107,7 @@ def main(cfg: DictConfig):
         swag_prr_ood = compute_prr(get_binary_acc(swag_ood_probs, swag_ood_labels), ood_entropies_swag)
 
         swag_ece_id = calculate_ece(swag_id_probs, swag_id_labels)
-        swag_ece_ood = calculate_ece(ood_entropies_swag, swag_ood_labels)
+        swag_ece_ood = calculate_ece(swag_ood_probs, swag_ood_labels)
 
         print(f"SWAG ID Acc: {swag_id_acc:.4f}")
         print(f"SWAG OOD Acc: {swag_ood_acc:.4f}")
