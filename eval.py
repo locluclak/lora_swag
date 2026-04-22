@@ -7,7 +7,7 @@ from transformers import AutoModelForSequenceClassification, set_seed
 
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
-from src.eval_utils import evaluate, compute_ood_metrics, compute_prr
+from src.eval_utils import calculate_ece, evaluate, compute_ood_metrics, compute_prr, plot_combined_reliability_diagram, plot_entropy_dist
 
 def get_binary_acc(probs, labels):
     preds = probs.argmax(axis=-1)
@@ -63,14 +63,34 @@ def main(cfg: DictConfig):
     # 4. Evaluate Base LoRA Model
     print("Evaluating Base LoRA Model...")
     base_id_acc, base_id_probs, base_id_labels, id_entropies_base, base_nll = evaluate(model, test_id_loader, device)
-    _, _, _, ood_entropies_base, ood_nll = evaluate(model, test_ood_loader, device)
+    base_ood_acc, base_ood_probs, base_ood_labels, ood_entropies_base, ood_nll = evaluate(model, test_ood_loader, device)
+    
     base_auroc = compute_ood_metrics(id_entropies_base, ood_entropies_base)
     base_prr = compute_prr(get_binary_acc(base_id_probs, base_id_labels), id_entropies_base)
+    base_prr_ood = compute_prr(get_binary_acc(base_ood_probs, base_ood_labels), ood_entropies_base)
+    base_ece_id = calculate_ece(base_id_probs, base_id_labels)
+    base_ece_ood = calculate_ece(ood_entropies_base, base_ood_labels)
+    
     print(f"Base ID Acc: {base_id_acc:.4f}")
+    print(f"Base OOD Acc: {base_ood_acc:.4f}")
+
     print(f"Base ID PRR: {base_prr:.4f}")
+    print(f"Base OOD PRR: {base_prr_ood:.4f}")
+
     print(f"Base OOD AUROC: {base_auroc:.4f}")
+
     print(f"Base ID NLL: {base_nll:.4f}")
     print(f"Base OOD NLL: {ood_nll:.4f}")
+
+    print(f"Base ID ECE: {base_ece_id:.4f}")
+    print(f"Base OOD ECE: {base_ece_ood:.4f}")
+    # Plot entropy distributions
+    plot_entropy_dist(id_entropies_base, ood_entropies_base, 
+                      title="Base Model Entropy Distribution", 
+                      path=os.path.join(save_path, "base_entropy_dist.png"))
+    plot_combined_reliability_diagram(base_id_probs, base_id_labels, base_ood_probs, base_ood_labels, 
+                                        title="Base LoRA: ID vs OOD Calibration", 
+                                        path=os.path.join(save_path, "base_reliability_diagram.png"))
 
     # 5. Evaluate SWAG Model
     if swag_model.n_models.item() > 0:
@@ -78,17 +98,38 @@ def main(cfg: DictConfig):
         swag_id_acc, swag_id_probs, swag_id_labels, id_entropies_swag, swag_nll = evaluate(
             swag_model, test_id_loader, device, num_samples=cfg.experiment.swag_eval_samples, scale=cfg.experiment.swag_scale
         )
-        _, _, _, ood_entropies_swag, ood_nll = evaluate(
+        swag_ood_acc, swag_ood_probs, swag_ood_labels, ood_entropies_swag, ood_nll = evaluate(
             swag_model, test_ood_loader, device, num_samples=cfg.experiment.swag_eval_samples, scale=cfg.experiment.swag_scale
         )
+        
         swag_auroc = compute_ood_metrics(id_entropies_swag, ood_entropies_swag)
         swag_prr = compute_prr(get_binary_acc(swag_id_probs, swag_id_labels), id_entropies_swag)
+        swag_prr_ood = compute_prr(get_binary_acc(swag_ood_probs, swag_ood_labels), ood_entropies_swag)
+
+        swag_ece_id = calculate_ece(swag_id_probs, swag_id_labels)
+        swag_ece_ood = calculate_ece(ood_entropies_swag, swag_ood_labels)
+
         print(f"SWAG ID Acc: {swag_id_acc:.4f}")
+        print(f"SWAG OOD Acc: {swag_ood_acc:.4f}")
+
         print(f"SWAG ID PRR: {swag_prr:.4f}")
+        print(f"SWAG OOD PRR: {swag_prr_ood:.4f}")
+
         print(f"SWAG OOD AUROC: {swag_auroc:.4f}")
+
         print(f"SWAG ID NLL: {swag_nll:.4f}")
         print(f"SWAG OOD NLL: {ood_nll:.4f}")
 
+        print(f"SWAG ID ECE: {swag_ece_id:.4f}")
+        print(f"SWAG OOD ECE: {swag_ece_ood:.4f}")
+        # Plot entropy distributions
+
+        plot_entropy_dist(id_entropies_swag, ood_entropies_swag, 
+                        title="SWAG Model Entropy Distribution", 
+                        path=os.path.join(save_path, "swag_entropy_dist.png"))
+        plot_combined_reliability_diagram(swag_id_probs, swag_id_labels, swag_ood_probs, swag_ood_labels, 
+                                          title="SWAG LoRA: ID vs OOD Calibration", 
+                                          path=os.path.join(save_path, "swag_reliability_diagram.png"))
 
 if __name__ == "__main__":
     main()
