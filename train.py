@@ -100,7 +100,15 @@ def main(cfg: DictConfig):
             current_lr = optimizer.param_groups[0]['lr']
             pbar.set_postfix({"loss": f"{loss.item():.4f}", "lr": f"{current_lr:.2e}", "step": global_step})
 
-            # SWAG Collection logic
+            # SWAG Logic
+            # 1. Save Base Model right before first SWAG collection
+            if global_step == swag_start_step:
+                print(f"\n[SWAG] Reached start step {global_step}. Saving base LoRA adapter...")
+                base_adapter_path = os.path.join(save_path, "base_lora_adapter")
+                model.save_pretrained(base_adapter_path)
+                print(f"[SWAG] Base adapter saved to {base_adapter_path}")
+
+            # 2. Collect statistics
             if global_step >= swag_start_step:
                 # Collect every N steps to reach the target sample count
                 if (global_step - swag_start_step) % swag_collect_interval == 0 and swag_collected_count < cfg.experiment.swag_total_samples:
