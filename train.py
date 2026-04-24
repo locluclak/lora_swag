@@ -51,7 +51,7 @@ def main(cfg: DictConfig):
     model.print_trainable_parameters()
 
     # 3. Setup SWAG wrapper
-    swag_model = LoRASWAG(model, max_num_models=max(cfg.experiment.max_num_models, cfg.experiment.swag_total_samples))
+    swag_model = LoRASWAG(model, max_num_models=cfg.experiment.max_num_models)
     swag_model.to(device)
 
     # 4. Optimizer and Scheduler
