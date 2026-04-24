@@ -145,68 +145,82 @@ def plot_entropy_dist(id_entropies, ood_entropies, title="Entropy Distribution",
         plt.savefig(f"{title.replace(' ', '_').lower()}.png")
     plt.show()
 
-def plot_combined_reliability_diagram(id_probs, id_labels, ood_probs, ood_labels, n_bins=10, title="Reliability Diagram: ID vs OOD", path=None):
+def plot_confidence_dist(id_probs, ood_probs, title="Confidence Distribution", path=None):
+    plt.figure(figsize=(10, 6))
+    id_conf = np.max(id_probs, axis=1)
+    ood_conf = np.max(ood_probs, axis=1)
+    
+    sns.kdeplot(id_conf, fill=True, label='In-Distribution (ID)', color='blue', bw_adjust=0.5)
+    sns.kdeplot(ood_conf, fill=True, label='Out-of-Distribution (OOD)', color='red', bw_adjust=0.5)
+    
+    plt.xlabel('Confidence (Max Probability)')
+    plt.ylabel('Density')
+    plt.title(title)
+    plt.legend()
+    plt.grid(alpha=0.3)
+    if path:
+        plt.savefig(path)
+    plt.close()
+
+def plot_combined_reliability_diagram(id_probs, id_labels, n_bins=15, title="Reliability Diagram", path=None):
+    """
+    Plots a clean reliability diagram for ID data.
+    - Top horizontal bars for accuracy
+    - Gap offset from the diagonal (Identity line)
+    """
     bin_boundaries = np.linspace(0, 1, n_bins + 1)
     bin_lowers = bin_boundaries[:-1]
     bin_uppers = bin_boundaries[1:]
+    bin_centers = (bin_lowers + bin_uppers) / 2
 
-    def get_bin_stats(probs, labels):
-        confidences = np.max(probs, axis=1)
-        predictions = np.argmax(probs, axis=1)
-        accuracies = (predictions == labels)
+    confidences = np.max(id_probs, axis=1)
+    predictions = np.argmax(id_probs, axis=1)
+    accuracies = (predictions == id_labels)
+    
+    bin_accs = []
+    bin_confs = []
+    for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
+        in_bin = (confidences > bin_lower) & (confidences <= bin_upper)
+        if np.any(in_bin):
+            bin_accs.append(np.mean(accuracies[in_bin]))
+            bin_confs.append(np.mean(confidences[in_bin]))
+        else:
+            bin_accs.append(0.0)
+            bin_confs.append(bin_lower + (bin_upper - bin_lower)/2)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    # 1. Perfect calibration line
+    ax.plot([0, 1], [0, 1], "--", color="gray", label="Perfect Calibration")
+
+    # 2. Accuracy Bars (Top Horizontal Bar style)
+    # We draw bars from 0 to accuracy, but often stylized as just the top
+    # To show the "Gap", we fill the area between Accuracy and the Diagonal
+    for i in range(n_bins):
+        # The Accuracy Bar
+        ax.bar(bin_lowers[i], bin_accs[i], width=1/n_bins, align='edge', 
+               color='blue', alpha=0.3, edgecolor='blue')
         
-        bin_accs = []
-        bin_confs = []
-        bin_counts = []
-        for bin_lower, bin_upper in zip(bin_lowers, bin_uppers):
-            in_bin = (confidences > bin_lower) & (confidences <= bin_upper)
-            bin_counts.append(np.sum(in_bin))
-            if np.any(in_bin):
-                bin_accs.append(np.mean(accuracies[in_bin]))
-                bin_confs.append(np.mean(confidences[in_bin]))
-            else:
-                bin_accs.append(0)
-                bin_confs.append(0)
-        return np.array(bin_accs), np.array(bin_confs), np.array(bin_counts)
+        # The Gap (Difference between confidence/diagonal and accuracy)
+        # Typically, if Acc < Conf, it's overconfident (Red gap)
+        # If Acc > Conf, it's underconfident (Green gap)
+        if bin_accs[i] > 0 or (bin_lowers[i] > 0.5): # Only draw if bin has data
+            gap_color = "red" if bin_centers[i] > bin_accs[i] else "green"
+            ax.bar(bin_lowers[i], bin_centers[i] - bin_accs[i], bottom=bin_accs[i], 
+                   width=1/n_bins, align='edge', color=gap_color, alpha=0.5, label="Gap" if i == 0 else "")
 
-    id_accs, id_confs, id_counts = get_bin_stats(id_probs, id_labels)
-    ood_accs, ood_confs, ood_counts = get_bin_stats(ood_probs, ood_labels)
-
-    # Chuẩn hóa số lượng mẫu trong mỗi bin để vẽ biểu đồ mật độ (optional)
-    id_proportions = id_counts / np.sum(id_counts)
-    ood_proportions = ood_counts / np.sum(ood_counts)
-
-    fig, ax1 = plt.subplots(figsize=(10, 8))
-
-    # 1. Vẽ các cột Accuracy cho ID
-    ax1.bar(bin_lowers, id_accs, width=1/n_bins, align='edge', alpha=0.4, 
-            edgecolor="blue", color="blue", label="ID Accuracy per Bin")
-    
-    # 2. Đường chéo lý tưởng
-    ax1.plot([0, 1], [0, 1], "--", color="gray", label="Perfect Calibration")
-
-    # 3. Vẽ phân phối Confidence (Mật độ mẫu rơi vào bin)
-    # Dùng trục phụ hoặc vẽ đè lên để thấy sự khác biệt phân phối
-    ax2 = ax1.twinx()
-    ax2.step(bin_lowers, id_proportions, where='post', color="blue", alpha=0.7, label="ID Confidence Dist.")
-    ax2.step(bin_lowers, ood_proportions, where='post', color="red", linestyle="--", alpha=0.7, label="OOD Confidence Dist.")
-    
-    ax1.set_xlabel("Confidence")
-    ax1.set_ylabel("Accuracy (Only for ID)")
-    ax2.set_ylabel("Proportion of Samples")
-    
-    plt.title(title)
-    # Hợp nhất legend từ 2 trục
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_aspect('equal')
+    ax.set_xlabel("Confidence")
+    ax.set_ylabel("Accuracy")
+    ax.set_title(title)
+    ax.legend(loc="upper left")
     
     plt.grid(alpha=0.2)
     if path:
         plt.savefig(path)
-    else:
-        plt.savefig(f"{title.replace(' ', '_').lower()}.png")
-    plt.show()
+    plt.close()
 
 # Cách sử dụng với biến của bạn:
 # plot_combined_reliability_diagram(swag_id_probs, swag_id_labels, swag_ood_probs, swag_ood_labels, title="SWAG LoRA: ID vs OOD Calibration")

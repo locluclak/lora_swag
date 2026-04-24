@@ -7,7 +7,10 @@ from transformers import AutoModelForSequenceClassification, set_seed
 
 from src.swag import LoRASWAG
 from src.data import get_dataloaders
-from src.eval_utils import calculate_ece, evaluate, compute_ood_metrics, compute_prr, plot_combined_reliability_diagram, plot_entropy_dist
+from src.eval_utils import (
+    calculate_ece, evaluate, compute_ood_metrics, compute_prr, 
+    plot_combined_reliability_diagram, plot_entropy_dist, plot_confidence_dist
+)
 
 def get_binary_acc(probs, labels):
     preds = probs.argmax(axis=-1)
@@ -84,12 +87,17 @@ def main(cfg: DictConfig):
 
     print(f"Base ID ECE: {base_ece_id:.4f}")
     print(f"Base OOD ECE: {base_ece_ood:.4f}")
-    # Plot entropy distributions
+    # Plotting
     plot_entropy_dist(id_entropies_base, ood_entropies_base, 
                       title="Base Model Entropy Distribution", 
                       path=os.path.join(save_path, "base_entropy_dist.png"))
-    plot_combined_reliability_diagram(base_id_probs, base_id_labels, base_ood_probs, base_ood_labels, 
-                                        title="Base LoRA: ID vs OOD Calibration", 
+    
+    plot_confidence_dist(base_id_probs, base_ood_probs,
+                         title="Base Model Confidence Distribution",
+                         path=os.path.join(save_path, "base_confidence_dist.png"))
+
+    plot_combined_reliability_diagram(base_id_probs, base_id_labels, 
+                                        title="Base LoRA Calibration (ID)", 
                                         path=os.path.join(save_path, "base_reliability_diagram.png"))
 
     # 5. Evaluate SWAG Model
@@ -122,13 +130,17 @@ def main(cfg: DictConfig):
 
         print(f"SWAG ID ECE: {swag_ece_id:.4f}")
         print(f"SWAG OOD ECE: {swag_ece_ood:.4f}")
-        # Plot entropy distributions
-
+        # Plotting
         plot_entropy_dist(id_entropies_swag, ood_entropies_swag, 
                         title="SWAG Model Entropy Distribution", 
                         path=os.path.join(save_path, "swag_entropy_dist.png"))
-        plot_combined_reliability_diagram(swag_id_probs, swag_id_labels, swag_ood_probs, swag_ood_labels, 
-                                          title="SWAG LoRA: ID vs OOD Calibration", 
+        
+        plot_confidence_dist(swag_id_probs, swag_ood_probs,
+                            title="SWAG Model Confidence Distribution",
+                            path=os.path.join(save_path, "swag_confidence_dist.png"))
+
+        plot_combined_reliability_diagram(swag_id_probs, swag_id_labels, 
+                                          title="SWAG LoRA Calibration (ID)", 
                                           path=os.path.join(save_path, "swag_reliability_diagram.png"))
 
 if __name__ == "__main__":

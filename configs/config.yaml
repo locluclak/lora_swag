@@ -9,13 +9,13 @@ hydra:
 
 experiment:
   task: "mnli"
-  ood_task: "sst2"
+  ood_task: "sst2" #"rte"
   batch_size: 16
   learning_rate: 2e-4
   num_epochs: 3
   swag_start_ratio: 0.75
   swag_total_samples: 30
-  swag_eval_samples: 15
+  swag_eval_samples: 10
   swag_scale: 1.0
   max_num_models: 20
   seed: 42

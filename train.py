@@ -104,7 +104,7 @@ def main(cfg: DictConfig):
             # 1. Save Base Model right before first SWAG collection
             if global_step == swag_start_step:
                 print(f"\n[SWAG] Reached start step {global_step}. Saving base LoRA adapter...")
-                base_adapter_path = os.path.join(save_path, "base_lora_adapter")
+                base_adapter_path = os.path.join(save_path, "lora_adapter")
                 model.save_pretrained(base_adapter_path)
                 print(f"[SWAG] Base adapter saved to {base_adapter_path}")
 
@@ -123,7 +123,7 @@ def main(cfg: DictConfig):
         print(f"Validation Accuracy: {val_acc:.4f}")
 
     # 6. Save Outputs
-    model.save_pretrained(os.path.join(save_path, "lora_adapter"))
+    model.save_pretrained(os.path.join(save_path, "last_lora_adapter"))
     # Save only the SWAG statistics (much smaller)
     swag_stats = swag_model.get_swag_stats()
     torch.save(swag_stats, os.path.join(save_path, "swag_stats.pt"))
