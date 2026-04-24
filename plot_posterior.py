@@ -92,11 +92,15 @@ def main(cfg: DictConfig):
     print(f"Total SWAG parameters: {theta_swa.numel()}")
     print(f"Covariance rank: {D_mat.size(0)}")
 
-    # Compute SVD to get top eigenvectors of D_mat^T * D_mat
-    # We do SVD on D_mat (K x D_total). 
-    # D_mat = U S V^T -> V contains the eigenvectors of D_mat^T * D_mat
+    # Compute SVD to get top eigenvectors
     U, S, Vh = torch.linalg.svd(D_mat, full_matrices=False)
     
+    # Project the original samples (rows of D_mat) onto the PCA axes
+    # Coordinates of sample i on PC j is simply (D_mat @ Vh.T)_{i,j}
+    # Since we have U, S, Vh, and D_mat = U S Vh, then D_mat @ Vh.T = U S
+    sample_coords = U * S
+    sample_coords = sample_coords.cpu().numpy()
+
     # Grid definition
     res = 15 
     u_range = np.linspace(-5, 5, res)
@@ -127,7 +131,14 @@ def main(cfg: DictConfig):
         plt.figure(figsize=(10, 8))
         cp = plt.contourf(U_grid, V_grid, loss_grid, levels=20, cmap='Spectral_r')
         plt.colorbar(cp, label='Loss')
+        
+        # Plot SWAG samples
+        plt.scatter(sample_coords[:, v1_idx], sample_coords[:, v2_idx], 
+                    color='red', s=30, alpha=0.6, label='SWAG Samples', edgecolors='white')
+        
+        # Plot SWA center
         plt.scatter(0, 0, marker='*', color='black', s=200, label='SWA Center', zorder=5)
+        
         plt.xlabel(f'PC {v1_idx+1}')
         plt.ylabel(f'PC {v2_idx+1}')
         plt.title(f'Posterior Loss Landscape (LoRA-SWAG)\nAxes: PC {v1_idx+1} vs PC {v2_idx+1}')
