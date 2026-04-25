@@ -31,7 +31,7 @@ def main(cfg: DictConfig):
     
     save_path = cfg.experiment.save_path
     stats_path = os.path.join(save_path, "swag_stats.pt")
-    adapter_path = os.path.join(save_path, "lora_adapter")
+    adapter_path = os.path.join(save_path, "base_lora_adapter")
     
     if not os.path.exists(stats_path) or not os.path.exists(adapter_path):
         print(f"Error: Missing files in {save_path}. Run train.py first.")
@@ -67,7 +67,7 @@ def main(cfg: DictConfig):
     model.to(device)
 
     # 3. Load SWAG stats
-    swag_model = LoRASWAG(model)
+    swag_model = LoRASWAG(model, max_num_models=cfg.experiment.max_num_models)
     swag_stats = torch.load(stats_path, map_location=device)
     swag_model.load_swag_stats(swag_stats)
 
