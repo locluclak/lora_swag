@@ -101,10 +101,15 @@ def main(cfg: DictConfig):
             pbar.set_postfix({"loss": f"{loss.item():.4f}", "lr": f"{current_lr:.2e}", "step": global_step})
 
             # SWAG Logic
-            # 1. Save Base Model right before first SWAG collection
             if global_step == swag_start_step:
-                print(f"\n[SWAG] Reached start step {global_step}. Saving base LoRA adapter...")
-                base_adapter_path = os.path.join(save_path, "lora_adapter")
+                print(f"\n[SWAG] Reached start step {global_step}. Setting LR to constant 0.5 * peak.")
+                # Set LR to 0.5 * peak (cfg.experiment.learning_rate)
+                swag_lr = 0.5 * cfg.experiment.learning_rate
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = swag_lr
+                
+                print(f"[SWAG] Saving base LoRA adapter...")
+                base_adapter_path = os.path.join(save_path, "base_lora_adapter")
                 model.save_pretrained(base_adapter_path)
                 print(f"[SWAG] Base adapter saved to {base_adapter_path}")
 
