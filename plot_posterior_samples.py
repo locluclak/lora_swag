@@ -31,7 +31,7 @@ def main(cfg: DictConfig):
     
     save_path = cfg.experiment.save_path
     stats_path = os.path.join(save_path, "swag_stats.pt")
-    adapter_path = os.path.join(save_path, "base_lora_adapter")
+    adapter_path = os.path.join(save_path, "lora_adapter")
     
     if not os.path.exists(stats_path) or not os.path.exists(adapter_path):
         print(f"Error: Missing files in {save_path}. Run train.py first.")
