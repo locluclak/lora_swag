@@ -78,7 +78,7 @@ def main(cfg: DictConfig):
 
             # 2. SWAG Ensemble Prediction (BMA)
             swag_probs_list = []
-            for _ in range(cfg.experiment.swag_samples):
+            for _ in range(cfg.experiment.swag_eval_samples):
                 swag_model.sample(scale=cfg.experiment.swag_scale, use_cov=True)
                 with torch.no_grad():
                     logits = model(input_ids=input_ids, attention_mask=attention_mask).logits

@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 from typing import List, Tuple, Dict, Optional
@@ -84,7 +86,7 @@ class LoRASWAG(nn.Module):
             # 1. Diagonal variance part: (1/sqrt(2)) * sqrt(var) * z1
             var = torch.clamp(sq_mean - mean**2, self.var_clamp)
             # Hệ số 1/sqrt(2) rất quan trọng để khớp với phân phối Gaussian của SWAG
-            sample = mean + (1.0 / torch.sqrt(2.0)) * torch.randn_like(mean) * torch.sqrt(var) * scale
+            sample = mean + (1.0 / math.sqrt(2.0)) * torch.randn_like(mean) * torch.sqrt(var) * scale
             
             # 2. Low-rank covariance part: (1/sqrt(2*(K-1))) * D * z2
             if use_cov:
@@ -97,7 +99,7 @@ class LoRASWAG(nn.Module):
                     cov_sample = (cov_mat_sqrt.t() @ z2).view_as(mean)
                     
                     # Nhân với hệ số 1 / sqrt(2 * (K - 1))
-                    scale_low_rank = scale / torch.sqrt(2.0 * max(1, K - 1))
+                    scale_low_rank = scale / math.sqrt(2.0 * max(1, K - 1))
                     sample = sample + (cov_sample * scale_low_rank)
             
             # Cập nhật trọng số vào model để chuẩn bị forward pass
