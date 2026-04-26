@@ -73,7 +73,7 @@ def main(cfg: DictConfig):
             model.eval()
             with torch.no_grad():
                 base_logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-                base_probs = torch.softmax(base_logits, dim=-1).cpu().numpy()[0]
+                base_probs = torch.softmax(base_logits, dim=-1).float().cpu().numpy()[0]
                 base_pred = np.argmax(base_probs)
 
             # 2. SWAG Ensemble Prediction (BMA)
@@ -82,9 +82,10 @@ def main(cfg: DictConfig):
                 swag_model.sample(scale=cfg.experiment.swag_scale, use_cov=True)
                 with torch.no_grad():
                     logits = model(input_ids=input_ids, attention_mask=attention_mask).logits
-                    swag_probs_list.append(torch.softmax(logits, dim=-1))
+                    swag_probs_list.append(torch.softmax(logits, dim=-1).float())
             
-            avg_swag_probs = torch.stack(swag_probs_list).mean(dim=0).cpu().numpy()[0]
+            avg_probs_tensor = torch.stack(swag_probs_list).mean(dim=0)
+            avg_swag_probs = avg_probs_tensor.cpu().numpy()[0]
             swag_pred = np.argmax(avg_swag_probs)
             swag_conf = np.max(avg_swag_probs)
 

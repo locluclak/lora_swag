@@ -74,22 +74,33 @@ class LoRASWAG(nn.Module):
         if self.n_models.item() == 0:
             return
 
+        # K trong công thức chính là số lượng model đã collect
+        K = self.n_models.item()
+
         for module, param_name, _ in self.params:
             mean = getattr(module, f"{param_name}_mean")
             sq_mean = getattr(module, f"{param_name}_sq_mean")
             
-            # Diagonal variance
+            # 1. Diagonal variance part: (1/sqrt(2)) * sqrt(var) * z1
             var = torch.clamp(sq_mean - mean**2, self.var_clamp)
-            sample = mean + torch.randn_like(mean) * torch.sqrt(var) * scale
+            # Hệ số 1/sqrt(2) rất quan trọng để khớp với phân phối Gaussian của SWAG
+            sample = mean + (1.0 / torch.sqrt(2.0)) * torch.randn_like(mean) * torch.sqrt(var) * scale
             
-            # Low-rank covariance
+            # 2. Low-rank covariance part: (1/sqrt(2*(K-1))) * D * z2
             if use_cov:
-                cov_mat_sqrt = getattr(module, f"{param_name}_cov_mat_sqrt")
+                cov_mat_sqrt = getattr(module, f"{param_name}_cov_mat_sqrt") # Đây chính là ma trận D_hat
                 if cov_mat_sqrt.size(0) > 0:
-                    eps = torch.randn((cov_mat_sqrt.size(0), 1), device=mean.device)
-                    cov_sample = (cov_mat_sqrt.t() @ eps).view_as(mean)
-                    sample = sample + (cov_sample * scale / (max(1, self.n_models.item() - 1))**0.5)
+                    # z2 ~ N(0, I_K)
+                    z2 = torch.randn((cov_mat_sqrt.size(0), 1), device=mean.device)
+                    
+                    # D_hat * z2
+                    cov_sample = (cov_mat_sqrt.t() @ z2).view_as(mean)
+                    
+                    # Nhân với hệ số 1 / sqrt(2 * (K - 1))
+                    scale_low_rank = scale / torch.sqrt(2.0 * max(1, K - 1))
+                    sample = sample + (cov_sample * scale_low_rank)
             
+            # Cập nhật trọng số vào model để chuẩn bị forward pass
             getattr(module, param_name).data.copy_(sample)
 
     def get_swag_stats(self) -> Dict[str, torch.Tensor]:
