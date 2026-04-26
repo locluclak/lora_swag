@@ -107,6 +107,13 @@ def main(cfg: DictConfig):
     v_range = np.linspace(-5, 5, res)
     U_grid, V_grid = np.meshgrid(u_range, v_range)
 
+    # Compute standard deviation along each PC
+    # In SWAG, the low-rank cov is (1 / (2*(K-1))) * D^T * D
+    # So the standard deviation along PC j is S_j / sqrt(2*(K-1))
+    # We also multiply by the swag_scale used during sampling
+    effective_K = D_mat.size(0)
+    sigma = (cfg.experiment.swag_scale * S / np.sqrt(2 * (effective_K - 1))).cpu().numpy()
+
     # Function to generate and save a plot for a given pair of eigenvectors
     def plot_landscape(v1_idx, v2_idx, filename):
         e1 = Vh[v1_idx]
@@ -132,6 +139,15 @@ def main(cfg: DictConfig):
         cp = plt.contourf(U_grid, V_grid, loss_grid, levels=20, cmap='Spectral_r')
         plt.colorbar(cp, label='Loss')
         
+        # Plot 3-sigma region
+        from matplotlib.patches import Ellipse
+        # Semi-axes are 3 * sigma
+        width = 2 * 3 * sigma[v1_idx]
+        height = 2 * 3 * sigma[v2_idx]
+        ellipse = Ellipse((0, 0), width, height, color='white', fill=False, 
+                         linestyle='--', linewidth=2, label='3$\sigma$ Region')
+        plt.gca().add_patch(ellipse)
+
         # Plot SWAG samples
         plt.scatter(sample_coords[:, v1_idx], sample_coords[:, v2_idx], 
                     color='red', s=30, alpha=0.6, label='SWAG Samples', edgecolors='white')

@@ -102,9 +102,9 @@ def main(cfg: DictConfig):
 
             # SWAG Logic
             if global_step == swag_start_step:
-                print(f"\n[SWAG] Reached start step {global_step}. Setting LR to constant 0.5 * peak.")
-                # Set LR to 0.5 * peak (cfg.experiment.learning_rate)
-                swag_lr = 0.5 * cfg.experiment.learning_rate
+                print(f"\n[SWAG] Reached start step {global_step}. Setting LR to constant {cfg.experiment.swag_lr_ratio} * peak.")
+                # Set LR to ratio * peak (cfg.experiment.learning_rate)
+                swag_lr = cfg.experiment.swag_lr_ratio * cfg.experiment.learning_rate
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = swag_lr
                 
