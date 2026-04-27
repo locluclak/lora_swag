@@ -11,7 +11,7 @@ experiment:
   learning_rate: 2e-4
   batch_size: 16
   max_length: 128
-  dataset_percentage: 0.05
+  dataset_percentage: 0.1
   swag_start_ratio: 0.75
   swag_total_samples: 30
   max_num_models: 20
