@@ -4,7 +4,7 @@ experiment:
   subset: "rc.nocontext"
   num_epochs: 3
   learning_rate: 4e-4
-  batch_size: 32
+  batch_size: 16
   max_length: 128
   dataset_percentage: 0.05
   swag_start_ratio: 0.75
