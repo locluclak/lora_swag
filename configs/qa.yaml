@@ -1,16 +1,21 @@
+hydra:
+  run:
+    dir: .
+  output_subdir: null
+
 experiment:
   seed: 42
   task: "trivia_qa"
   subset: "rc.nocontext"
   num_epochs: 3
-  learning_rate: 4e-4
+  learning_rate: 2e-4
   batch_size: 16
   max_length: 128
   dataset_percentage: 0.05
   swag_start_ratio: 0.75
   swag_total_samples: 30
   max_num_models: 20
-  swag_scale: 2.0
+  swag_scale: 4.0
   swag_eval_samples: 15
   swag_lr_ratio: 1.0
   save_path: "outputs_qa"

@@ -69,9 +69,10 @@ def main(cfg: DictConfig):
     swag_collected_count = 0
     
     # 5. Training Loop
+    train_losses = []
     for epoch in range(cfg.experiment.num_epochs):
         model.train()
-        total_loss = 0
+        epoch_loss = 0
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
         for batch in pbar:
             input_ids = batch["input_ids"].to(device)
@@ -87,15 +88,17 @@ def main(cfg: DictConfig):
             if global_step < swag_start_step:
                 scheduler.step()
             
-            total_loss += loss.item()
+            loss_val = loss.item()
+            epoch_loss += loss_val
+            train_losses.append(loss_val)
             global_step += 1
             
             current_lr = optimizer.param_groups[0]['lr']
-            pbar.set_postfix({"loss": f"{loss.item():.4f}", "lr": f"{current_lr:.2e}"})
+            pbar.set_postfix({"loss": f"{loss_val:.4f}", "lr": f"{current_lr:.2e}"})
 
             # SWAG Phase Shift
             if global_step == swag_start_step:
-                print(f"\n[SWAG] Setting LR to constant {cfg.experiment.swag_lr_ratio} * peak.")
+                print(f"\n[SWAG] Reached start step {global_step}. Setting LR to constant {cfg.experiment.swag_lr_ratio} * peak.")
                 swag_lr = cfg.experiment.swag_lr_ratio * cfg.experiment.learning_rate
                 for param_group in optimizer.param_groups:
                     param_group['lr'] = swag_lr
@@ -109,9 +112,19 @@ def main(cfg: DictConfig):
                     swag_model.collect_model()
                     swag_collected_count += 1
         
-        print(f"Epoch {epoch} Avg Train Loss: {total_loss / len(train_loader):.4f}")
+        print(f"Epoch {epoch} Avg Train Loss: {epoch_loss / len(train_loader):.4f}")
 
     # 6. Save Outputs
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses)
+    plt.title("QA Training Loss Curve")
+    plt.xlabel("Global Step")
+    plt.ylabel("Loss")
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, "loss_curve.png"))
+    plt.close()
+
     model.save_pretrained(os.path.join(save_path, "last_lora_adapter"))
     swag_stats = swag_model.get_swag_stats()
     torch.save(swag_stats, os.path.join(save_path, "swag_stats.pt"))
