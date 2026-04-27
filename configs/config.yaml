@@ -14,7 +14,7 @@ experiment:
   learning_rate: 5e-4
   num_epochs: 4
   swag_start_ratio: 0.75
-  swag_lr_ratio: 1
+  swag_lr_ratio: 0.5
   swag_total_samples: 30
   swag_eval_samples: 15
   swag_scale: 2.0

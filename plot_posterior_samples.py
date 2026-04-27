@@ -148,15 +148,6 @@ def main(cfg: DictConfig):
         cp = plt.contourf(U_grid, V_grid, loss_grid, levels=20, cmap='Spectral_r')
         plt.colorbar(cp, label='Loss')
         
-        # Plot 3-sigma region
-        from matplotlib.patches import Ellipse
-        # Semi-axes are 3 * sigma
-        width = 2 * 3 * sigma[v1_idx]
-        height = 2 * 3 * sigma[v2_idx]
-        ellipse = Ellipse((0, 0), width, height, color='white', fill=False, 
-                         linestyle='--', linewidth=2, label='3$\sigma$ Region')
-        plt.gca().add_patch(ellipse)
-
         # Plot POSTERIOR samples (drawn from the Gaussian)
         plt.scatter(sampled_coords[:, v1_idx], sampled_coords[:, v2_idx], 
                     color='blue', s=40, alpha=0.5, label='Posterior Samples', marker='x')
