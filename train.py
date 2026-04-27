@@ -76,9 +76,10 @@ def main(cfg: DictConfig):
     swag_collected_count = 0
     
     # 5. Training Loop
+    train_losses = []
     for epoch in range(cfg.experiment.num_epochs):
         model.train()
-        total_loss = 0
+        epoch_loss = 0
         pbar = tqdm(train_loader, desc=f"Epoch {epoch}")
         for batch in pbar:
             batch = {k: v.to(device) for k, v in batch.items()}
@@ -91,14 +92,14 @@ def main(cfg: DictConfig):
             # Step scheduler only BEFORE swag_start_step
             if global_step < swag_start_step:
                 scheduler.step()
-            # After swag_start_step, we do NOT call scheduler.step() 
-            # This makes the learning rate constant at the value it reached at 75% training
             
-            total_loss += loss.item()
+            loss_val = loss.item()
+            epoch_loss += loss_val
+            train_losses.append(loss_val)
             global_step += 1
             
             current_lr = optimizer.param_groups[0]['lr']
-            pbar.set_postfix({"loss": f"{loss.item():.4f}", "lr": f"{current_lr:.2e}", "step": global_step})
+            pbar.set_postfix({"loss": f"{loss_val:.4f}", "lr": f"{current_lr:.2e}", "step": global_step})
 
             # SWAG Logic
             if global_step == swag_start_step:
@@ -121,13 +122,23 @@ def main(cfg: DictConfig):
                     swag_model.collect_model()
                     swag_collected_count += 1
         
-        print(f"Epoch {epoch} Avg Train Loss: {total_loss / len(train_loader):.4f}")
+        print(f"Epoch {epoch} Avg Train Loss: {epoch_loss / len(train_loader):.4f}")
         
         # Periodic validation
         val_acc, _, _, _, _ = evaluate(model, val_loader, device)
         print(f"Validation Accuracy: {val_acc:.4f}")
 
     # 6. Save Outputs
+    import matplotlib.pyplot as plt
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_losses)
+    plt.title("Training Loss Curve")
+    plt.xlabel("Global Step")
+    plt.ylabel("Loss")
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, "loss_curve.png"))
+    plt.close()
+
     model.save_pretrained(os.path.join(save_path, "last_lora_adapter"))
     # Save only the SWAG statistics (much smaller)
     swag_stats = swag_model.get_swag_stats()
