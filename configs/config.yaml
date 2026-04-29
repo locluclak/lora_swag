@@ -11,10 +11,10 @@ experiment:
   task: "mnli"
   ood_task: "sst2" #"rte"
   batch_size: 32
-  learning_rate: 2e-4
+  learning_rate: 4e-4
   num_epochs: 4
   swag_start_ratio: 0.75
-  swag_lr_ratio: 0.5
+  swag_lr_ratio: 0.25
   swag_total_samples: 30
   swag_eval_samples: 15
   swag_scale: 3.0
