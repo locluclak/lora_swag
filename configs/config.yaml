@@ -12,9 +12,9 @@ experiment:
   ood_task: "sst2" #"rte"
   batch_size: 32
   learning_rate: 4e-4
-  num_epochs: 4
-  swag_start_ratio: 0.75
-  swag_lr_ratio: 0.25
+  num_epochs: 5
+  swag_start_ratio: 0.80
+  swag_lr_ratio: 0.5
   swag_total_samples: 30
   swag_eval_samples: 15
   swag_scale: 3.0
@@ -22,5 +22,5 @@ experiment:
   seed: 42
   save_path: "outputs"
   max_length: 128
-  dataset_percentage: 0.1
+  dataset_percentage: 0.05
 
